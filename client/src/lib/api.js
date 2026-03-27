@@ -99,5 +99,55 @@ export const api = {
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
+  },
+
+  // --- Admin Routes ---
+  adminLogin: async (credentials) => {
+    const res = await fetch(`${API_URL}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    if (data.session) {
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      });
+    }
+    return data;
+  },
+
+  getAdminStats: async () => {
+    const res = await fetch(`${API_URL}/admin/stats`, {
+      headers: await getHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  getAdminUsers: async () => {
+    const res = await fetch(`${API_URL}/admin/users`, {
+      headers: await getHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  getAdminItems: async () => {
+    const res = await fetch(`${API_URL}/admin/items`, {
+      headers: await getHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  getAdminClaims: async () => {
+    const res = await fetch(`${API_URL}/admin/claims`, {
+      headers: await getHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 };

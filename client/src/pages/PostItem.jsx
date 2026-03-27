@@ -10,8 +10,18 @@ export const PostItem = () => {
   const [formData, setFormData] = useState({
     title: '', description: '', category: 'electronics', location_found: ''
   });
+  const [questions, setQuestions] = useState(['']);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  
+  const handleQuestionChange = (index, value) => {
+    const newQuestions = [...questions];
+    newQuestions[index] = value;
+    setQuestions(newQuestions);
+  };
+
+  const addQuestion = () => setQuestions([...questions, '']);
+  const removeQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
   
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -45,13 +55,20 @@ export const PostItem = () => {
         .getPublicUrl(filePath);
 
       // 3. Save Item in DB
+      const validQuestions = questions.filter(q => q.trim() !== '');
+      if (validQuestions.length === 0) {
+        throw new Error("You must add at least one verification question.");
+      }
+
       await api.createItem({
         ...formData,
+        questions: validQuestions,
         image_url: publicUrl
       });
 
       alert("Item posted successfully!");
       setFormData({ title: '', description: '', category: 'electronics', location_found: '' });
+      setQuestions(['']);
       setFile(null);
     } catch (err) {
       alert("Error posting item: " + err.message);
@@ -103,6 +120,31 @@ export const PostItem = () => {
               <input required type="file" accept="image/*" onChange={handleFileChange} style={{ cursor: 'pointer' }} />
               {file && <p style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--primary)' }}>Selected: {file.name}</p>}
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label>Verification Questions</label>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              Ask specific questions that only the true owner would know to verify their claim.
+            </p>
+            {questions.map((q, index) => (
+              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input 
+                  required 
+                  type="text" 
+                  className="input-glass" 
+                  placeholder={`Question ${index + 1} (e.g. What is the lock screen wallpaper?)`} 
+                  value={q} 
+                  onChange={(e) => handleQuestionChange(index, e.target.value)} 
+                />
+                {questions.length > 1 && (
+                  <button type="button" className="btn-secondary" onClick={() => removeQuestion(index)} style={{ padding: '0 16px' }}>X</button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={addQuestion} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+              + Add another question
+            </button>
           </div>
 
           <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '8px' }} disabled={loading}>

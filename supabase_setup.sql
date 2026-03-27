@@ -19,6 +19,19 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow Service Role" ON public.users FOR ALL USING (true);
 
 
+-- 1.5 Create the Admin Profiles Table
+-- Admins are entirely separate from standard users
+CREATE TABLE public.admin_profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.admin_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow Service Role for Admins" ON public.admin_profiles FOR ALL USING (true);
+CREATE POLICY "Allow admins to read their own profile" ON public.admin_profiles FOR SELECT USING (auth.uid() = id);
+
 -- 2. Create the Items Table
 CREATE TABLE public.items (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -27,6 +40,7 @@ CREATE TABLE public.items (
   category TEXT NOT NULL,
   image_url TEXT NOT NULL,
   location_found TEXT NOT NULL,
+  questions JSONB DEFAULT '[]'::jsonb NOT NULL,
   status TEXT NOT NULL DEFAULT 'found' CHECK (status IN ('found', 'claimed', 'returned')),
   posted_by UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -42,7 +56,8 @@ CREATE TABLE public.claims (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   item_id UUID REFERENCES public.items(id) ON DELETE CASCADE NOT NULL,
   claimed_by UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  proof TEXT NOT NULL,
+  proof TEXT,
+  answers JSONB DEFAULT '{}'::jsonb NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

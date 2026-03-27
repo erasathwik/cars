@@ -5,7 +5,7 @@ import { Menu, X, Box } from 'lucide-react';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -33,6 +33,12 @@ export const Navbar = () => {
             <Link to="/post-item" className="nav-link" onClick={() => setIsOpen(false)}>Post Item</Link>
             <Link to="/your-posts" className="nav-link" onClick={() => setIsOpen(false)}>Your Posts</Link>
             <Link to="/claims" className="nav-link" onClick={() => setIsOpen(false)}>Claims</Link>
+            {role === 'admin' && (
+              <>
+                <hr style={{ borderColor: 'var(--border-glass)', margin: '8px 0' }} />
+                <Link to="/admin" className="nav-link" onClick={() => setIsOpen(false)} style={{ color: '#ef4444' }}>Admin Dashboard</Link>
+              </>
+            )}
             <hr style={{ borderColor: 'var(--border-glass)', margin: '8px 0' }} />
             <button onClick={handleSignOut} className="nav-link" style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem' }}>
               Sign Out

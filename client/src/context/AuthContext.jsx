@@ -7,15 +7,38 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchExtendedProfile = async (sessionUser) => {
+    if (!sessionUser) {
+      setRole(null);
+      return;
+    }
+    
+    // First check if they are an admin
+    const { data: adminData } = await supabase.from('admin_profiles').select('id').eq('id', sessionUser.id).single();
+    if (adminData) {
+      setRole('admin');
+      return;
+    }
+
+    // Otherwise they are a student
+    const { data: userData } = await supabase.from('users').select('id').eq('id', sessionUser.id).single();
+    if (userData) {
+      setRole('student');
+    } else {
+      setRole(null);
+    }
+  };
 
   useEffect(() => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      fetchExtendedProfile(session?.user).finally(() => setLoading(false));
     });
 
     // Listen for changes
@@ -23,6 +46,7 @@ export const AuthProvider = ({ children }) => {
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        fetchExtendedProfile(session?.user);
       }
     );
 
@@ -32,6 +56,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     session,
     user,
+    role,
     signOut: () => supabase.auth.signOut(),
   };
 

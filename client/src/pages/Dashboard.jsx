@@ -6,7 +6,7 @@ export const Dashboard = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [claimingId, setClaimingId] = useState(null);
-  const [proof, setProof] = useState('');
+  const [answers, setAnswers] = useState({});
 
   useEffect(() => {
     fetchItems();
@@ -23,12 +23,17 @@ export const Dashboard = () => {
     }
   };
 
-  const handleClaim = async (itemId) => {
+  const handleClaim = async (item) => {
     try {
-      await api.createClaim({ item_id: itemId, proof });
+      // Basic validation: ensure all questions are answered
+      if (item.questions?.length > 0 && Object.keys(answers).length !== item.questions.length) {
+        throw new Error("Please provide answers to all verification questions.");
+      }
+
+      await api.createClaim({ item_id: item.id, answers });
       alert("Claim submitted successfully!");
       setClaimingId(null);
-      setProof('');
+      setAnswers({});
     } catch (err) {
       alert("Failed to claim: " + err.message);
     }
@@ -77,22 +82,38 @@ export const Dashboard = () => {
 
                 {claimingId === item.id ? (
                   <div style={{ marginTop: 'auto', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px' }}>
-                    <label style={{ fontSize: '0.85rem', marginBottom: '8px', display: 'block' }}>Provide Proof of Ownership</label>
-                    <textarea 
-                      className="input-glass" 
-                      rows={3} 
-                      value={proof} 
-                      onChange={(e) => setProof(e.target.value)}
-                      placeholder="e.g. It's a black leather wallet with my ID card inside..."
-                      style={{ resize: 'none', marginBottom: '8px' }}
-                    />
+                    <label style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'block', fontWeight: 'bold' }}>Verification Questions</label>
+                    {(item.questions && item.questions.length > 0) ? item.questions.map((q, i) => (
+                      <div key={i} style={{ marginBottom: '12px' }}>
+                        <p style={{ fontSize: '0.85rem', marginBottom: '4px', color: 'var(--primary)' }}>Q: {q}</p>
+                        <input 
+                          type="text" 
+                          className="input-glass" 
+                          value={answers[i] || ''} 
+                          onChange={(e) => setAnswers({ ...answers, [i]: e.target.value })}
+                          placeholder="Your answer..."
+                        />
+                      </div>
+                    )) : (
+                      <div style={{ marginBottom: '12px' }}>
+                        <p style={{ fontSize: '0.85rem', marginBottom: '4px' }}>Please provide any proof of ownership.</p>
+                        <textarea 
+                          className="input-glass" 
+                          rows={2} 
+                          value={answers['proof'] || ''} 
+                          onChange={(e) => setAnswers({ proof: e.target.value })}
+                          placeholder="e.g. It's a black leather wallet with my ID..."
+                          style={{ resize: 'none' }}
+                        />
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-primary" style={{ flex: 1 }} onClick={() => handleClaim(item.id)}>Submit</button>
-                      <button className="btn-secondary" onClick={() => setClaimingId(null)}>Cancel</button>
+                      <button className="btn-primary" style={{ flex: 1 }} onClick={() => handleClaim(item)}>Submit Claim</button>
+                      <button className="btn-secondary" onClick={() => { setClaimingId(null); setAnswers({}); }}>Cancel</button>
                     </div>
                   </div>
                 ) : (
-                  <button className="btn-primary" style={{ marginTop: 'auto', width: '100%' }} onClick={() => setClaimingId(item.id)}>
+                  <button className="btn-primary" style={{ marginTop: 'auto', width: '100%' }} onClick={() => { setClaimingId(item.id); setAnswers({}); }}>
                     CLAIM ITEM
                   </button>
                 )}

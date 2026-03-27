@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../config/supabaseClient.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/admin.js';
 
 const router = express.Router();
 
@@ -50,14 +51,57 @@ router.post('/login', async (req, res) => {
 
     if (error) return res.status(400).json({ error: error.message });
 
-    // Fetch extended user details
+    // Check if they are an admin first
+    const { data: adminData } = await supabase
+      .from('admin_profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (adminData) {
+      return res.status(200).json({ session: data.session, user: adminData, role: 'admin' });
+    }
+
+    // Fetch extended student details
     const { data: userData, error: dbError } = await supabase
       .from('users')
       .select('*')
       .eq('id', data.user.id)
       .single();
 
-    res.status(200).json({ session: data.session, user: userData || data.user });
+    if (dbError || !userData) {
+      await supabase.auth.signOut();
+      return res.status(404).json({ error: 'User profile not found. Please sign up.' });
+    }
+
+    res.status(200).json({ session: data.session, user: userData, role: 'student' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Authenticate with Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return res.status(400).json({ error: error.message });
+
+    // Check if they exist in admin_profiles
+    const { data: adminData, error: dbError } = await supabase
+      .from('admin_profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (dbError || !adminData) {
+      // Must explicitly sign out the underlying session if they are not an admin to maintain security boundaries locally
+      await supabase.auth.signOut();
+      return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    }
+
+    res.status(200).json({ session: authData.session, user: adminData, role: 'admin' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -107,7 +151,7 @@ router.get('/items', async (req, res) => {
 
 router.post('/items', requireAuth, async (req, res) => {
   try {
-    const { title, description, category, image_url, location_found } = req.body;
+    const { title, description, category, image_url, location_found, questions } = req.body;
     
     const { data, error } = await supabase
       .from('items')
@@ -118,6 +162,7 @@ router.post('/items', requireAuth, async (req, res) => {
           category,
           image_url,
           location_found,
+          questions: questions || [],
           status: 'found',
           posted_by: req.user.id
         }
@@ -149,7 +194,7 @@ router.get('/user-items', requireAuth, async (req, res) => {
 // --- Claims Routes ---
 router.post('/claim', requireAuth, async (req, res) => {
   try {
-    const { item_id, proof } = req.body;
+    const { item_id, proof, answers } = req.body;
 
     const { data, error } = await supabase
       .from('claims')
@@ -158,6 +203,7 @@ router.post('/claim', requireAuth, async (req, res) => {
           item_id,
           claimed_by: req.user.id,
           proof,
+          answers: answers || {},
           status: 'pending'
         }
       ])
@@ -186,6 +232,44 @@ router.get('/claims', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- Admin Routes ---
+router.get('/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const [{ count: usersCount }, { count: itemsCount }, { count: claimsCount }] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('items').select('*', { count: 'exact', head: true }),
+      supabase.from('claims').select('*', { count: 'exact', head: true })
+    ]);
+    res.status(200).json({ usersCount, itemsCount, claimsCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+    if (error) return res.status(400).json({ error: error.message });
+    res.status(200).json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/admin/items', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('items').select('*, posted_by:users(name, roll_number)').order('created_at', { ascending: false });
+    if (error) return res.status(400).json({ error: error.message });
+    res.status(200).json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/admin/claims', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('claims').select('*, claimed_by:users(name, email), item:items(title)').order('created_at', { ascending: false });
+    if (error) return res.status(400).json({ error: error.message });
+    res.status(200).json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;
