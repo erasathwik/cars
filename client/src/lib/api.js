@@ -119,6 +119,23 @@ export const api = {
     return data;
   },
 
+  adminSignup: async (data) => {
+    const res = await fetch(`${API_URL}/admin/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+    if (result.session) {
+      await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token
+      });
+    }
+    return result;
+  },
+
   getAdminStats: async () => {
     const res = await fetch(`${API_URL}/admin/stats`, {
       headers: await getHeaders()

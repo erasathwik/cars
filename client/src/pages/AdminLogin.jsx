@@ -6,9 +6,10 @@ import { useAuth } from '../context/AuthContext';
 
 export const AdminLogin = () => {
   const { role } = useAuth();
+  const [isSigningUp, setIsSigningUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', adminKey: '' });
 
   if (role === 'admin') {
     return <Navigate to="/admin" replace />;
@@ -22,7 +23,11 @@ export const AdminLogin = () => {
     setError('');
 
     try {
-      await api.adminLogin(formData);
+      if (isSigningUp) {
+        await api.adminSignup(formData);
+      } else {
+        await api.adminLogin({ email: formData.email, password: formData.password });
+      }
     } catch (err) {
       try {
         const parsed = JSON.parse(err.message);
@@ -51,20 +56,43 @@ export const AdminLogin = () => {
         )}
 
         <form onSubmit={handleSubmit}>
+          {isSigningUp && (
+            <div className="form-group">
+              <label>Full Name</label>
+              <input required type="text" name="name" className="input-glass" placeholder="Admin Name" value={formData.name} onChange={handleChange} />
+            </div>
+          )}
+
           <div className="form-group">
             <label>Email Address</label>
-            <input required type="email" name="email" className="input-glass" placeholder="admin@cars.edu" onChange={handleChange} />
+            <input required type="email" name="email" className="input-glass" placeholder="admin@cars.edu" value={formData.email} onChange={handleChange} />
           </div>
 
           <div className="form-group">
             <label>Password</label>
-            <input required type="password" name="password" className="input-glass" placeholder="••••••••" onChange={handleChange} />
+            <input required type="password" name="password" className="input-glass" placeholder="••••••••" value={formData.password} onChange={handleChange} />
           </div>
 
+          {isSigningUp && (
+            <div className="form-group">
+              <label>Admin Registration Key</label>
+              <input required type="password" name="adminKey" className="input-glass" placeholder="Secret Key" value={formData.adminKey} onChange={handleChange} />
+            </div>
+          )}
+
           <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '16px', background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', border: 'none' }} disabled={loading}>
-            {loading ? 'Authenticating...' : 'Secure Login'}
+            {loading ? 'Processing...' : (isSigningUp ? 'Create Admin Account' : 'Secure Login')}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: '24px' }}>
+          <button 
+            onClick={() => { setIsSigningUp(!isSigningUp); setError(''); }} 
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            {isSigningUp ? 'Already an admin? Log in' : 'Need an account? Sign up'}
+          </button>
+        </div>
       </div>
     </div>
   );

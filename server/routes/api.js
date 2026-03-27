@@ -80,6 +80,43 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/admin/signup', async (req, res) => {
+  try {
+    const { name, email, password, adminKey } = req.body;
+
+    // 1. Verify the secret key
+    if (!adminKey || adminKey !== process.env.ADMIN_SIGNUP_KEY) {
+      return res.status(403).json({ error: 'Invalid Administration Registration Key. Access denied.' });
+    }
+
+    // 2. Sign up with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) return res.status(400).json({ error: authError.message });
+
+    const user = authData.user;
+    if (!user) return res.status(400).json({ error: 'Admin signup failed at auth layer.' });
+
+    // 3. Insert into admin_profiles
+    const { data: adminData, error: dbError } = await supabase
+      .from('admin_profiles')
+      .insert([{ id: user.id, name, email }])
+      .select()
+      .single();
+
+    if (dbError) {
+      return res.status(400).json({ error: dbError.message });
+    }
+
+    res.status(201).json({ session: authData.session, user: adminData, role: 'admin' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
