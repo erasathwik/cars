@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { Loader } from 'lucide-react';
 
 const AuthContext = createContext({});
 
@@ -12,44 +13,59 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchExtendedProfile = async (sessionUser) => {
-    if (!sessionUser) {
-      setRole(null);
-      return;
-    }
-    
-    // First check if they are an admin
-    const { data: adminData } = await supabase.from('admin_profiles').select('id').eq('id', sessionUser.id).single();
-    if (adminData) {
-      setRole('admin');
-      return;
-    }
+    try {
+      if (!sessionUser) {
+        setRole(null);
+        return;
+      }
+      
+      // First check if they are an admin
+      const { data: adminData, error: adminError } = await supabase.from('admin_profiles').select('id').eq('id', sessionUser.id).single();
+      if (!adminError && adminData) {
+        setRole('admin');
+        return;
+      }
 
-    // Otherwise they are a student
-    const { data: userData } = await supabase.from('users').select('id').eq('id', sessionUser.id).single();
-    if (userData) {
-      setRole('student');
-    } else {
+      // Otherwise they are a student
+      const { data: userData, error: userError } = await supabase.from('users').select('id').eq('id', sessionUser.id).single();
+      if (!userError && userData) {
+        setRole('student');
+      } else {
+        setRole(null);
+      }
+    } catch (err) {
+      console.warn("Profile fetch failed, defaulting to student role", err);
       setRole(null);
     }
   };
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      await fetchExtendedProfile(session?.user);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session?.user) {
+          await fetchExtendedProfile(session.user);
+        }
+        setUser(session?.user ?? null);
+      } catch (err) {
+        console.error("Auth init error", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     // Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setLoading(true);
         setSession(session);
-        await fetchExtendedProfile(session?.user);
+        if (session?.user) {
+          await fetchExtendedProfile(session.user);
+        }
         setUser(session?.user ?? null);
-        setLoading(false);
+        // Note: We don't toggle global loading here to avoid screen flickering on refreshes
       }
     );
 
@@ -65,7 +81,22 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        <div style={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+          color: '#fff',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          <Loader size={48} className="spin" style={{ color: 'var(--primary)', marginBottom: '24px' }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '8px' }}>CARS</h2>
+          <p style={{ opacity: 0.7, fontSize: '0.9rem' }}>Initializing Secure System...</p>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };
