@@ -40,9 +40,22 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Failsafe: No matter what happens, the app will unlock after 2.5 seconds
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Quick check for configuration
+        if (!supabase.supabaseUrl || !supabase.supabaseKey) {
+          console.error("Supabase config is missing!");
+          return;
+        }
+
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
         setSession(session);
         if (session?.user) {
           await fetchExtendedProfile(session.user);
@@ -52,6 +65,7 @@ export const AuthProvider = ({ children }) => {
         console.error("Auth init error", err);
       } finally {
         setLoading(false);
+        clearTimeout(safetyTimeout);
       }
     };
 
@@ -65,11 +79,13 @@ export const AuthProvider = ({ children }) => {
           await fetchExtendedProfile(session.user);
         }
         setUser(session?.user ?? null);
-        // Note: We don't toggle global loading here to avoid screen flickering on refreshes
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const value = {
