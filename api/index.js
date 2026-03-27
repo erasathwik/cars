@@ -3,13 +3,21 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 
 // --- Supabase Client Setup ---
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
+// Aggressively trim to fix .env whitespace explosions
+supabaseUrl = supabaseUrl ? supabaseUrl.trim() : '';
+supabaseKey = supabaseKey ? supabaseKey.trim() : '';
+
+if (!supabaseUrl || supabaseUrl.length === 0) supabaseUrl = 'https://placeholder.supabase.co';
+if (!supabaseKey || supabaseKey.length === 0) supabaseKey = 'placeholder';
+
+if (supabaseUrl === 'https://placeholder.supabase.co') {
   console.warn("⚠️ Missing SUPABASE_URL or SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY in environment");
 }
 
+console.log("[DEBUG] Supabase URL length:", supabaseUrl.length);
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Middleware: requireAuth ---
