@@ -35,18 +35,21 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
+      await fetchExtendedProfile(session?.user);
       setUser(session?.user ?? null);
-      fetchExtendedProfile(session?.user).finally(() => setLoading(false));
+      setLoading(false);
     });
 
     // Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        setLoading(true);
         setSession(session);
+        await fetchExtendedProfile(session?.user);
         setUser(session?.user ?? null);
-        fetchExtendedProfile(session?.user);
+        setLoading(false);
       }
     );
 
