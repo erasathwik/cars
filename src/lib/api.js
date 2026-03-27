@@ -2,6 +2,27 @@ import { supabase } from './supabaseClient';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+const fetchWithTimeout = async (resource, options = {}) => {
+  const { timeout = 10000 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection or server status.');
+    }
+    throw error;
+  }
+};
+
 const getHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession();
   return {
@@ -14,7 +35,7 @@ export const api = {
   // Auth is somewhat bypassed here if we use Supabase Auth directly on client, 
   // but we can call our custom backend endpoints if needed.
   signup: async (userData) => {
-    const res = await fetch(`${API_URL}/signup`, {
+    const res = await fetchWithTimeout(`${API_URL}/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData)
@@ -31,7 +52,7 @@ export const api = {
   },
   
   login: async (credentials) => {
-    const res = await fetch(`${API_URL}/login`, {
+    const res = await fetchWithTimeout(`${API_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials)
@@ -48,7 +69,7 @@ export const api = {
   },
 
   updateProfile: async (data) => {
-    const res = await fetch(`${API_URL}/profile`, {
+    const res = await fetchWithTimeout(`${API_URL}/profile`, {
       method: 'PUT',
       headers: await getHeaders(),
       body: JSON.stringify(data)
@@ -58,7 +79,7 @@ export const api = {
   },
 
   getItems: async () => {
-    const res = await fetch(`${API_URL}/items`, {
+    const res = await fetchWithTimeout(`${API_URL}/items`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -66,7 +87,7 @@ export const api = {
   },
   
   createItem: async (itemData) => {
-    const res = await fetch(`${API_URL}/items`, {
+    const res = await fetchWithTimeout(`${API_URL}/items`, {
       method: 'POST',
       headers: await getHeaders(),
       body: JSON.stringify(itemData)
@@ -76,7 +97,7 @@ export const api = {
   },
   
   getUserItems: async () => {
-    const res = await fetch(`${API_URL}/user-items`, {
+    const res = await fetchWithTimeout(`${API_URL}/user-items`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -84,7 +105,7 @@ export const api = {
   },
   
   createClaim: async (claimData) => {
-    const res = await fetch(`${API_URL}/claim`, {
+    const res = await fetchWithTimeout(`${API_URL}/claim`, {
       method: 'POST',
       headers: await getHeaders(),
       body: JSON.stringify(claimData)
@@ -94,7 +115,7 @@ export const api = {
   },
 
   getClaims: async () => {
-    const res = await fetch(`${API_URL}/claims`, {
+    const res = await fetchWithTimeout(`${API_URL}/claims`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -103,7 +124,7 @@ export const api = {
 
   // --- Admin Routes ---
   adminLogin: async (credentials) => {
-    const res = await fetch(`${API_URL}/admin/login`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials)
@@ -120,7 +141,7 @@ export const api = {
   },
 
   adminSignup: async (data) => {
-    const res = await fetch(`${API_URL}/admin/signup`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -137,7 +158,7 @@ export const api = {
   },
 
   getAdminStats: async () => {
-    const res = await fetch(`${API_URL}/admin/stats`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/stats`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -145,7 +166,7 @@ export const api = {
   },
 
   getAdminUsers: async () => {
-    const res = await fetch(`${API_URL}/admin/users`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/users`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -153,7 +174,7 @@ export const api = {
   },
 
   getAdminItems: async () => {
-    const res = await fetch(`${API_URL}/admin/items`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/items`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
@@ -161,7 +182,7 @@ export const api = {
   },
 
   getAdminClaims: async () => {
-    const res = await fetch(`${API_URL}/admin/claims`, {
+    const res = await fetchWithTimeout(`${API_URL}/admin/claims`, {
       headers: await getHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
